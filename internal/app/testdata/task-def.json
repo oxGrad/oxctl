@@ -1,0 +1,6 @@
+{
+  "family": "my-family",
+  "containerDefinitions": [
+    {"name": "app", "image": "old:1"}
+  ]
+}
