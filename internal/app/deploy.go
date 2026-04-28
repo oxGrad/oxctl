@@ -24,8 +24,23 @@ func NewDeployer(e ecs.ECSDeployer, logger *slog.Logger) *Deployer {
 	return &Deployer{ecs: e, logger: logger}
 }
 
-// Deploy registers a new task definition revision and updates the ECS service.
+// Deploy registers a new task definition revision, then creates or updates the ECS service.
 func (d *Deployer) Deploy(ctx context.Context, cfg *config.DeployConfig) error {
+	logGroup := cfg.LogGroup
+	if logGroup == "" {
+		logGroup = "/ecs/" + cfg.Service
+	}
+
+	d.logger.Info("enabling cluster container insights", "cluster", cfg.Cluster)
+	if err := d.ecs.UpdateClusterInsights(ctx, cfg.Cluster); err != nil {
+		return fmt.Errorf("updating cluster insights: %w", err)
+	}
+
+	d.logger.Info("ensuring log group", "log-group", logGroup)
+	if err := d.ecs.EnsureLogGroup(ctx, logGroup); err != nil {
+		return fmt.Errorf("ensuring log group: %w", err)
+	}
+
 	d.logger.Info("patching task definition", "container", cfg.ContainerName, "image", cfg.Image)
 	def, err := ecs.LoadAndPatch(cfg.TaskDef, cfg.ContainerName, cfg.Image)
 	if err != nil {
@@ -39,9 +54,40 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *config.DeployConfig) error {
 	}
 	d.logger.Info("task definition registered", "arn", arn)
 
-	d.logger.Info("updating service", "cluster", cfg.Cluster, "service", cfg.Service)
-	if err := d.ecs.UpdateService(ctx, cfg.Cluster, cfg.Service, arn); err != nil {
-		return fmt.Errorf("updating service: %w", err)
+	d.logger.Info("checking service status", "cluster", cfg.Cluster, "service", cfg.Service)
+	svcStatus, err := d.ecs.DescribeService(ctx, cfg.Cluster, cfg.Service)
+	if err != nil {
+		return fmt.Errorf("describing service: %w", err)
+	}
+
+	if svcStatus.Status == "ACTIVE" {
+		d.logger.Info("service exists — updating", "cluster", cfg.Cluster, "service", cfg.Service)
+		if err := d.ecs.UpdateService(ctx, cfg.Cluster, cfg.Service, arn); err != nil {
+			return fmt.Errorf("updating service: %w", err)
+		}
+	} else {
+		d.logger.Info("service not found — creating", "cluster", cfg.Cluster, "service", cfg.Service)
+		desiredCount := cfg.DesiredCount
+		if desiredCount == 0 {
+			desiredCount = 1
+		}
+		containerPort := cfg.ContainerPort
+		if containerPort == 0 {
+			containerPort = 3000
+		}
+		if err := d.ecs.CreateService(ctx, ecs.CreateServiceInput{
+			Cluster:          cfg.Cluster,
+			ServiceName:      cfg.Service,
+			TaskDefARN:       arn,
+			DesiredCount:     desiredCount,
+			SubnetIDs:        cfg.SubnetIDs,
+			SecurityGroupIDs: cfg.SecurityGroupIDs,
+			TargetGroupARN:   cfg.TargetGroupARN,
+			ContainerName:    cfg.ContainerName,
+			ContainerPort:    containerPort,
+		}); err != nil {
+			return fmt.Errorf("creating service: %w", err)
+		}
 	}
 
 	if cfg.Wait {

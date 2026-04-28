@@ -62,6 +62,7 @@ func TestUpdateService_CallsAWS(t *testing.T) {
 func TestDescribeService_ParsesOutput(t *testing.T) {
 	fakeOutput := []byte(`{
 		"services": [{
+			"status": "ACTIVE",
 			"runningCount": 2,
 			"desiredCount": 2,
 			"taskDefinition": "arn:aws:ecs:us-east-1:123:task-definition/my-family:42",
@@ -75,6 +76,9 @@ func TestDescribeService_ParsesOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if svc.Status != "ACTIVE" {
+		t.Errorf("status: want ACTIVE, got %q", svc.Status)
+	}
 	if svc.RunningCount != 2 {
 		t.Errorf("running count: want 2, got %d", svc.RunningCount)
 	}
@@ -83,5 +87,87 @@ func TestDescribeService_ParsesOutput(t *testing.T) {
 	}
 	if svc.TaskDefinition != "arn:aws:ecs:us-east-1:123:task-definition/my-family:42" {
 		t.Errorf("task def ARN mismatch: %q", svc.TaskDefinition)
+	}
+}
+
+func TestDescribeService_ReturnsMissingWhenEmpty(t *testing.T) {
+	fr := &fakeRunner{output: []byte(`{"services": []}`)}
+	d := ecs.NewAWSCLIDeployer(fr)
+
+	svc, err := d.DescribeService(context.Background(), "my-cluster", "missing-service")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.Status != "MISSING" {
+		t.Errorf("want MISSING, got %q", svc.Status)
+	}
+}
+
+func TestCreateService_CallsAWS(t *testing.T) {
+	fr := &fakeRunner{}
+	d := ecs.NewAWSCLIDeployer(fr)
+
+	err := d.CreateService(context.Background(), ecs.CreateServiceInput{
+		Cluster:          "my-cluster",
+		ServiceName:      "my-service",
+		TaskDefARN:       "arn:aws:ecs:us-east-1:123:task-definition/fam:1",
+		DesiredCount:     1,
+		SubnetIDs:        []string{"subnet-aaa", "subnet-bbb"},
+		SecurityGroupIDs: []string{"sg-ccc"},
+		TargetGroupARN:   "arn:aws:elasticloadbalancing:us-east-1:123:targetgroup/tg/abc",
+		ContainerName:    "app",
+		ContainerPort:    3000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fr.calls) == 0 || !strings.Contains(fr.calls[0], "create-service") {
+		t.Errorf("expected create-service call, got: %v", fr.calls)
+	}
+	call := fr.calls[0]
+	for _, want := range []string{"FARGATE", "subnet-aaa", "sg-ccc", "deploymentCircuitBreaker"} {
+		if !strings.Contains(call, want) {
+			t.Errorf("create-service call missing %q: %s", want, call)
+		}
+	}
+}
+
+func TestUpdateService_HasCircuitBreaker(t *testing.T) {
+	fr := &fakeRunner{}
+	d := ecs.NewAWSCLIDeployer(fr)
+	err := d.UpdateService(context.Background(), "my-cluster", "my-service", "arn:...")
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := fr.calls[0]
+	for _, want := range []string{"update-service", "deploymentCircuitBreaker", "enable-execute-command", "health-check-grace-period"} {
+		if !strings.Contains(call, want) {
+			t.Errorf("update-service call missing %q: %s", want, call)
+		}
+	}
+}
+
+func TestEnsureLogGroup_CallsAWS(t *testing.T) {
+	fr := &fakeRunner{}
+	d := ecs.NewAWSCLIDeployer(fr)
+	if err := d.EnsureLogGroup(context.Background(), "/ecs/my-service"); err != nil {
+		t.Fatal(err)
+	}
+	if len(fr.calls) == 0 || !strings.Contains(fr.calls[0], "create-log-group") {
+		t.Errorf("expected create-log-group call, got: %v", fr.calls)
+	}
+}
+
+func TestUpdateClusterInsights_CallsAWS(t *testing.T) {
+	fr := &fakeRunner{}
+	d := ecs.NewAWSCLIDeployer(fr)
+	if err := d.UpdateClusterInsights(context.Background(), "my-cluster"); err != nil {
+		t.Fatal(err)
+	}
+	if len(fr.calls) == 0 || !strings.Contains(fr.calls[0], "update-cluster-settings") {
+		t.Errorf("expected update-cluster-settings call, got: %v", fr.calls)
+	}
+	if !strings.Contains(fr.calls[0], "containerInsights") {
+		t.Errorf("expected containerInsights in call, got: %s", fr.calls[0])
 	}
 }

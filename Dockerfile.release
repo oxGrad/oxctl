@@ -1,0 +1,5 @@
+# Minimal image for GoReleaser — copies the pre-built binary into the aws-cli runtime.
+# GoReleaser places the platform-specific binary named "oxctl" in the build context.
+FROM amazon/aws-cli:2.34.38
+COPY oxctl /usr/local/bin/oxctl
+ENTRYPOINT ["oxctl"]

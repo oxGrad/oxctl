@@ -1,0 +1,86 @@
+version: 2
+
+project_name: oxctl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: oxctl
+    main: ./cmd/oxctl
+    binary: oxctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: oxctl
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+# Multi-arch Docker images pushed to GHCR.
+# Each arch gets its own tagged image; docker_manifests combine them.
+dockers:
+  - id: oxctl-amd64
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - ghcr.io/oxgrad/oxctl:{{ .Tag }}-amd64
+      - ghcr.io/oxgrad/oxctl:latest-amd64
+    dockerfile: Dockerfile.release
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+
+  - id: oxctl-arm64
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - ghcr.io/oxgrad/oxctl:{{ .Tag }}-arm64
+      - ghcr.io/oxgrad/oxctl:latest-arm64
+    dockerfile: Dockerfile.release
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64
+
+docker_manifests:
+  - name_template: ghcr.io/oxgrad/oxctl:{{ .Tag }}
+    image_templates:
+      - ghcr.io/oxgrad/oxctl:{{ .Tag }}-amd64
+      - ghcr.io/oxgrad/oxctl:{{ .Tag }}-arm64
+
+  - name_template: ghcr.io/oxgrad/oxctl:latest
+    image_templates:
+      - ghcr.io/oxgrad/oxctl:latest-amd64
+      - ghcr.io/oxgrad/oxctl:latest-arm64

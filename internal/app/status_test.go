@@ -17,11 +17,14 @@ type stubStatusECS struct {
 func (s *stubStatusECS) RegisterTaskDefinition(_ context.Context, _ map[string]any) (string, error) {
 	return "", nil
 }
-func (s *stubStatusECS) UpdateService(_ context.Context, _, _, _ string) error { return nil }
-func (s *stubStatusECS) WaitStable(_ context.Context, _, _ string) error       { return nil }
+func (s *stubStatusECS) UpdateService(_ context.Context, _, _, _ string) error          { return nil }
+func (s *stubStatusECS) CreateService(_ context.Context, _ ecs.CreateServiceInput) error { return nil }
+func (s *stubStatusECS) WaitStable(_ context.Context, _, _ string) error                { return nil }
 func (s *stubStatusECS) DescribeService(_ context.Context, _, _ string) (ecs.ServiceStatus, error) {
 	return s.status, nil
 }
+func (s *stubStatusECS) EnsureLogGroup(_ context.Context, _ string) error        { return nil }
+func (s *stubStatusECS) UpdateClusterInsights(_ context.Context, _ string) error { return nil }
 
 func TestStatus_PrintsAllFields(t *testing.T) {
 	stub := &stubStatusECS{

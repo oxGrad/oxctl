@@ -1,14 +1,11 @@
-# syntax=docker/dockerfile:1
-
-FROM golang:1.22-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /bin/oxctl ./cmd/oxctl
 
-FROM python:3.12-alpine AS final
-RUN pip install --no-cache-dir awscli
+FROM amazon/aws-cli:2.34.38 AS release
 
 COPY --from=builder /bin/oxctl /usr/local/bin/oxctl
 

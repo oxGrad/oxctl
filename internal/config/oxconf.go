@@ -18,9 +18,16 @@ type oxconfFile struct {
 	Service       string `yaml:"service"`
 	Image         string `yaml:"image"`
 	ContainerName string `yaml:"container-name"`
+	ContainerPort int    `yaml:"container-port"`
 	TaskDef       string `yaml:"task-def"`
 	Wait          bool   `yaml:"wait"`
 	Timeout       int    `yaml:"timeout"` // seconds
+
+	DesiredCount     int      `yaml:"desired-count"`
+	SubnetIDs        []string `yaml:"subnet-ids"`
+	SecurityGroupIDs []string `yaml:"security-group-ids"`
+	TargetGroupARN   string   `yaml:"target-group-arn"`
+	LogGroup         string   `yaml:"log-group"`
 }
 
 // LoadOxconf reads and parses an oxconf YAML file at the given path.
@@ -34,12 +41,18 @@ func LoadOxconf(path string) (*DeployConfig, error) {
 		return nil, fmt.Errorf("parsing oxconf: %w", err)
 	}
 	return &DeployConfig{
-		Cluster:       f.Cluster,
-		Service:       f.Service,
-		Image:         f.Image,
-		ContainerName: f.ContainerName,
-		TaskDef:       f.TaskDef,
-		Wait:          f.Wait,
-		Timeout:       time.Duration(f.Timeout) * time.Second,
+		Cluster:          f.Cluster,
+		Service:          f.Service,
+		Image:            f.Image,
+		ContainerName:    f.ContainerName,
+		ContainerPort:    f.ContainerPort,
+		TaskDef:          f.TaskDef,
+		Wait:             f.Wait,
+		Timeout:          time.Duration(f.Timeout) * time.Second,
+		DesiredCount:     f.DesiredCount,
+		SubnetIDs:        f.SubnetIDs,
+		SecurityGroupIDs: f.SecurityGroupIDs,
+		TargetGroupARN:   f.TargetGroupARN,
+		LogGroup:         f.LogGroup,
 	}, nil
 }

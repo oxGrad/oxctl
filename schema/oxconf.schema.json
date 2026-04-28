@@ -27,6 +27,12 @@
       "description": "Name of the container inside the task definition to update with the new image",
       "minLength": 1
     },
+    "container-port": {
+      "type": "integer",
+      "description": "Port the container listens on (used when creating a new service with a load balancer)",
+      "minimum": 1,
+      "default": 3000
+    },
     "task-def": {
       "type": "string",
       "description": "Path to the ECS task definition JSON template file",
@@ -42,6 +48,34 @@
       "description": "Timeout in seconds for the stability wait (used only when wait=true)",
       "minimum": 1,
       "default": 300
+    },
+    "desired-count": {
+      "type": "integer",
+      "description": "Number of task instances to run (used when creating a new service)",
+      "minimum": 0,
+      "default": 1
+    },
+    "subnet-ids": {
+      "type": "array",
+      "description": "VPC subnet IDs for the Fargate task network configuration (required for service creation)",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "security-group-ids": {
+      "type": "array",
+      "description": "Security group IDs for the Fargate task network configuration (required for service creation)",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "target-group-arn": {
+      "type": "string",
+      "description": "ARN of the ALB target group to attach when creating a new service",
+      "minLength": 1
+    },
+    "log-group": {
+      "type": "string",
+      "description": "CloudWatch log group name to ensure before deploying. Defaults to /ecs/<service>",
+      "minLength": 1
     }
   }
 }

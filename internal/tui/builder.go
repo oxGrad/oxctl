@@ -62,13 +62,17 @@ func (b builderModel) render() string {
 		if disp == "" {
 			disp = f.placeholder
 		}
-		row := labelStyle.Render(f.label+":") + " "
+		// Height(3)+AlignVertical(Center) makes the label span the full height of
+		// the bordered box (top border / content / bottom border) so JoinHorizontal
+		// keeps all three lines flush instead of detaching them to column 0.
+		lbl := labelStyle.Height(3).AlignVertical(lipgloss.Center).MarginRight(1).Render(f.label + ":")
+		var box string
 		if i == b.focus {
-			row += focusedField.Render(disp)
+			box = focusedField.Render(disp)
 		} else {
-			row += blurredField.Render(disp)
+			box = blurredField.Render(disp)
 		}
-		sb.WriteString(row + "\n")
+		sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, lbl, box) + "\n")
 	}
 	sb.WriteString(normalStyle.Render("\ntype to edit · tab/↓ next · shift+tab/↑ prev · enter generate · esc back"))
 	return sb.String()

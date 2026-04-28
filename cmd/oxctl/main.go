@@ -18,6 +18,13 @@ import (
 	"github.com/oxGrad/oxctl/pkg/util"
 )
 
+// Injected by GoReleaser via ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if err := rootCmd().Execute(); err != nil {
 		os.Exit(1)
@@ -47,11 +54,22 @@ func rootCmd() *cobra.Command {
 
 	root.AddCommand(deployCmd(&jsonLog, &debugLog, &dryRun))
 	root.AddCommand(statusCmd(&jsonLog, &debugLog, &dryRun))
+	root.AddCommand(versionCmd())
 	return root
 }
 
 func buildLogger(w *os.File, jsonLog, debugLog bool) *slog.Logger {
 	return oxlog.New(w, jsonLog, debugLog)
+}
+
+func versionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("oxctl %s (commit: %s, built: %s)\n", version, commit, date)
+		},
+	}
 }
 
 func deployCmd(jsonLog, debugLog, dryRun *bool) *cobra.Command {
